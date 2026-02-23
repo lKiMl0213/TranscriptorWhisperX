@@ -1,6 +1,39 @@
 const chat = document.getElementById('chat-container');
 const fileInput = document.getElementById('file');
 const messageInput = document.getElementById('messageInput');
+const timestampToggle = document.getElementById('timestampToggle');
+const narradorToggle = document.getElementById('narradorToggle');
+const exportPanel = document.getElementById('exportPanel');
+const exportTxtButton = document.getElementById('exportTxtButton');
+const exportSrtButton = document.getElementById('exportSrtButton');
+const precisionInfoIcon = document.getElementById('precisionInfoIcon');
+const precisionTooltip = document.getElementById('precisionTooltip');
+
+let latestJobId = null;
+let latestExportSupportsSrt = false;
+
+// Tooltip interativo de precisão
+if (precisionInfoIcon && precisionTooltip) {
+  precisionInfoIcon.addEventListener('click', (e) => {
+    e.stopPropagation();
+    precisionTooltip.classList.toggle('active');
+  });
+
+  precisionInfoIcon.addEventListener('mouseenter', () => {
+    precisionTooltip.classList.add('active');
+  });
+
+  precisionInfoIcon.addEventListener('mouseleave', () => {
+    precisionTooltip.classList.remove('active');
+  });
+
+  // Fecha o tooltip ao clicar fora
+  document.addEventListener('click', (e) => {
+    if (!precisionInfoIcon.contains(e.target) && !precisionTooltip.contains(e.target)) {
+      precisionTooltip.classList.remove('active');
+    }
+  });
+}
 
 fileInput.addEventListener('change', (e) => {
   const f = e.target.files[0];
@@ -122,6 +155,15 @@ const stopSvgHTML = `
 // controlador compartilhado com simulateProgress
 const stopSignal = { done: false };
 
+function updateExportButtonsState() {
+  const hasJob = Boolean(latestJobId);
+  exportPanel.classList.toggle('hidden', !hasJob);
+  exportTxtButton.disabled = !hasJob;
+  exportSrtButton.disabled = !hasJob || !latestExportSupportsSrt;
+}
+
+updateExportButtonsState();
+
 // Quando clicar no botão: inicia envio se não estiver processando; se estiver, pede parada
 sendButton.addEventListener("click", async (e) => {
   // evita o onclick inline duplo (se tiver)
@@ -175,7 +217,16 @@ async function sendAudio() {
   const progressPromise = simulateProgress(file, stopSignal);
 
   const formData = new FormData();
+  const precisionSelected = document.querySelector('input[name="precisionChoice"]:checked');
+  const languageSelected = document.querySelector('input[name="translationLanguage"]:checked');
   formData.append('audio', file);
+  formData.append('timestamp', String(timestampToggle.checked));
+  formData.append('diferenciar_narrador', String(narradorToggle.checked));
+  formData.append('idioma', languageSelected ? languageSelected.value : 'pt');
+  formData.append('precisao', precisionSelected ? precisionSelected.value : 'bom');
+  latestJobId = null;
+  latestExportSupportsSrt = false;
+  updateExportButtonsState();
 
   try {
     // envia ao backend
@@ -184,13 +235,11 @@ async function sendAudio() {
       body: formData
     });
 
-    if (!res.ok) {
-      // backend devolveu erro HTTP
-      throw new Error(`Erro HTTP: ${res.status}`);
-    }
-
-    // tenta ler resposta (pode ser texto parcial se trocou /stop)
     const data = await res.json();
+    if (!res.ok) {
+      const detail = (data && data.detail) ? data.detail : `Erro HTTP: ${res.status}`;
+      throw new Error(detail);
+    }
 
     // sinaliza que frontend pode parar loader
     stopSignal.done = true;
@@ -198,15 +247,24 @@ async function sendAudio() {
     // espera a simulação finalizar com calma
     await progressPromise;
 
+    latestJobId = data.job_id || null;
+    latestExportSupportsSrt = Boolean(data.timestamp_enabled);
+    updateExportButtonsState();
+
     // se o usuário clicou em stop antes do fim, data pode conter mensagem de interrupção
     const raw = (data && data.text) ? data.text.trim() : "";
     if (raw.length > 0) {
-      const parts = raw.split('. ');
-      const sentences = parts.map((s, idx) => {
-        if (idx < parts.length - 1 || raw.endsWith('.')) return s.trim() + '.';
-        return s.trim();
-      }).filter(s => s.length > 0);
-      displaySentences(sentences);
+      const useTimestamp = timestampToggle.checked;
+      if (useTimestamp) {
+        addMessage(raw, "bot");
+      } else {
+        const parts = raw.split('. ');
+        const sentences = parts.map((s, idx) => {
+          if (idx < parts.length - 1 || raw.endsWith('.')) return s.trim() + '.';
+          return s.trim();
+        }).filter(s => s.length > 0);
+        displaySentences(sentences);
+      }
     } else {
       addMessage("Nenhum texto recebido do servidor.", "bot");
     }
@@ -219,12 +277,48 @@ async function sendAudio() {
   } catch (err) {
     console.error(err);
     stopSignal.done = true;
-    addMessage("Erro ao enviar áudio.", "bot");
+    latestJobId = null;
+    latestExportSupportsSrt = false;
+    updateExportButtonsState();
+    addMessage(`Erro ao enviar áudio: ${err.message}`, "bot");
   } finally {
     // volta ícone pro normal
     setSendIconIsProcessing(false);
   }
 }
+
+async function exportByFormat(fmt) {
+  if (!latestJobId) return;
+
+  try {
+    const res = await fetch(`/export?job_id=${encodeURIComponent(latestJobId)}&formato=${encodeURIComponent(fmt)}`);
+    if (!res.ok) {
+      let detail = `Erro HTTP: ${res.status}`;
+      try {
+        const payload = await res.json();
+        detail = payload.detail || detail;
+      } catch (e) {}
+      throw new Error(detail);
+    }
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `transcricao.${fmt}`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    addMessage(`Arquivo ${fmt.toUpperCase()} exportado com sucesso.`, "bot");
+  } catch (err) {
+    console.error(err);
+    addMessage(`Falha ao exportar: ${err.message}`, "bot");
+  }
+}
+
+exportTxtButton.addEventListener("click", () => exportByFormat("txt"));
+exportSrtButton.addEventListener("click", () => exportByFormat("srt"));
 
 
 

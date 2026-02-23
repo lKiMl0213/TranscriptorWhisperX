@@ -3,16 +3,111 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chat de Transcrição</title>
+  <title>Transcriptor</title>
   <link rel="stylesheet" href="/static/style.css">
-  <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
 </head>
 <body>
   <div class="chat-container-wrapper">
     <div class="intro">
-      <h1>Bem-vindo ao</h1>
-      <img src="/static/favicon.png" alt="Favicon" class="favicon">
+      <div class="brand-wrap">
+        <div class="wordmark-loader" aria-label="Transcriptor">
+          <svg class="wordmark-svg" viewBox="0 0 820 84" xmlns="http://www.w3.org/2000/svg" role="img">
+            <defs>
+              <linearGradient id="wordmark-b" x1="0" y1="84" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#973BED"></stop>
+                <stop offset="1" stop-color="#007CFF"></stop>
+              </linearGradient>
+              <linearGradient id="wordmark-c" x1="0" y1="84" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#FFC800"></stop>
+                <stop offset="1" stop-color="#F0F"></stop>
+                <animateTransform
+                  attributeName="gradientTransform"
+                  type="rotate"
+                  values="0 410 42;-270 410 42;-540 410 42;-810 410 42;-1080 410 42"
+                  dur="8s"
+                  keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1"
+                  repeatCount="indefinite"
+                ></animateTransform>
+              </linearGradient>
+              <linearGradient id="wordmark-d" x1="0" y1="84" x2="0" y2="0" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#00E0ED"></stop>
+                <stop offset="1" stop-color="#00DA72"></stop>
+              </linearGradient>
+            </defs>
+
+            <text x="50%" y="58" text-anchor="middle" class="wordmark-text layer-b">TRANSCRIPTOR</text>
+            <text x="50%" y="58" text-anchor="middle" class="wordmark-text layer-c">TRANSCRIPTOR</text>
+            <text x="50%" y="58" text-anchor="middle" class="wordmark-text layer-d">TRANSCRIPTOR</text>
+          </svg>
+        </div>
+      </div>
       <p>Tempo aproximado da transcrição por minuto de áudio: 3 ~ 5 minutos</p>
+    </div>
+
+    <div class="options-panel">
+      <h2>Opções de Transcrição</h2>
+      <div class="options-grid">
+        <div class="option-field">
+          <span>Timestamp</span>
+          <label for="timestampToggle" class="timestamp-switch" aria-label="Alternar timestamp">
+            <input type="checkbox" id="timestampToggle" />
+            <span>Sem</span>
+            <span>Com</span>
+          </label>
+        </div>
+
+        <div class="option-field">
+          <span>Diferenciar narrador</span>
+          <label for="narradorToggle" class="timestamp-switch" aria-label="Alternar narrador">
+            <input type="checkbox" id="narradorToggle" />
+            <span>Não</span>
+            <span>Sim</span>
+          </label>
+        </div>
+
+        <div class="option-field">
+          <span>Traduzir para o idioma</span>
+          <fieldset class="segmented-switch segmented-switch-3">
+            <input checked id="langPt" name="translationLanguage" type="radio" value="pt" />
+            <label for="langPt">Português BR</label>
+            <input id="langIng" name="translationLanguage" type="radio" value="ing" />
+            <label for="langIng">Inglês</label>
+            <input id="langJp" name="translationLanguage" type="radio" value="jp" />
+            <label for="langJp">Japonês</label>
+            <span class="segmented-thumb" aria-hidden="true"></span>
+          </fieldset>
+        </div>
+
+        <div class="option-field">
+          <span class="precision-label-wrapper">
+            <span>Precisão</span>
+            <span class="precision-info-icon" id="precisionInfoIcon" title="Ver detalhes de precisão">ⓘ</span>
+            <div class="precision-tooltip" id="precisionTooltip">
+              <div class="precision-tooltip-item">
+                <strong>Rápido</strong>
+                <p>2-3x mais rápido, menos preciso</p>
+              </div>
+              <div class="precision-tooltip-item">
+                <strong>Bom</strong>
+                <p>Velocidade e qualidade balanceadas</p>
+              </div>
+              <div class="precision-tooltip-item">
+                <strong>Perfeito</strong>
+                <p>3-4x mais lento, máxima qualidade</p>
+              </div>
+            </div>
+          </span>
+          <fieldset id="precisionToggle" class="segmented-switch segmented-switch-3">
+            <input name="precisionChoice" id="precisionRapido" type="radio" value="rapido">
+            <label for="precisionRapido">Rápido</label>
+            <input name="precisionChoice" id="precisionBom" type="radio" value="bom" checked>
+            <label for="precisionBom">Bom</label>
+            <input name="precisionChoice" id="precisionPerfeito" type="radio" value="perfeito">
+            <label for="precisionPerfeito">Perfeito</label>
+            <span class="segmented-thumb" aria-hidden="true"></span>
+          </fieldset>
+        </div>
+      </div>
     </div>
 
     <div class="chat-window">
@@ -63,6 +158,22 @@
               ></path>
             </svg>
           </button>
+        </div>
+        <div class="export-panel hidden" id="exportPanel">
+          <h3>Salvar arquivo</h3>
+          <div class="export-controls" role="group" aria-label="Formatos de exportacao">
+            <button id="exportTxtButton" class="download-button" type="button" data-format="txt" disabled>
+              <span class="docs">
+                <span>TXT</span>
+              </span>
+            </button>
+
+            <button id="exportSrtButton" class="download-button" type="button" data-format="srt" disabled>
+              <span class="docs">
+                <span>SRT</span>
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
